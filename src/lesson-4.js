@@ -58,6 +58,10 @@ function evaluate(expression, environment) {
   if (isDefinition(expression))
     return evalDefinition(expression, environment);
 
+  // Assignment
+  if (isAssignment(expression))
+    return evalAssignment(expression, environment);
+
   // All the other cases in this version of our interpreter
   // are the *function applications* (i.e. function calls). Applications
   // are compound expressions which consist of *operator* (i.e. function)
@@ -157,6 +161,17 @@ function isDefinition(expression) {
 }
 
 /**
+ * isAssignment
+ * @param {Expression} expression
+ * Tests whether the expression is an assignment. We use
+ * the same "isTaggedList" from the lesson-1 for that.
+ *
+ */
+function isAssignment(expression) {
+  return isTaggedList("set", expression);
+}
+
+/**
  * isApplication
  * @param {Expression} expression
  * Tests whether the expression is a function call (the application).
@@ -253,6 +268,19 @@ function defineVariable(variable, value, environment) {
 }
 
 /**
+ * setVariableValue
+ * @param {String} variable
+ * @param {Variant} value
+ * @param {Environment} environment
+ * Changes a variable value only if it exists.
+ */
+function setVariableValue(variable, value, environment) {
+  if (variable in environment)
+    return environment[variable] = value;
+  throw ReferenceError('"' + variable + '" is not defined');
+}
+
+/**
  * evalDefinition
  * @param {Expression} expression
  * @param {Environment} environment
@@ -268,6 +296,20 @@ function evalDefinition(expression, environment) {
     // and extract the value; should call evaluate recursively since,
     // can be the case of assignment to another variable:
     // getVariableValue(["define", "x", "y"]) -> "y"
+    evaluate(getVariableValue(expression), environment),
+    environment
+  );
+}
+
+/**
+ * evalAssignment
+ * @param {Expression} expression
+ * @param {Environment} environment
+ * Handles assignment of variables.
+ */
+function evalAssignment(expression, environment) {
+  return setVariableValue(
+    getVariableName(expression),
     evaluate(getVariableValue(expression), environment),
     environment
   );
