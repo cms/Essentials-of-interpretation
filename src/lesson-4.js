@@ -25,6 +25,37 @@
  */
 
 /**
+ * preParse
+ * @param {s-expression} str
+ *
+ * "preParse" transforms s-expressions, to an AST tree.
+ */
+function preParse(str) {
+  str = str.trim();
+  if (str.length == 0) return str;
+
+  str = str.replace(/\(/g, '[')
+           .replace(/\)/g, ']')
+           .replace(/[\n\r]+/g, '')
+           .replace(/\s+/g, ',')
+           .replace(/('?[a-z-A-Z0-9_$+*/\-]+)/g, '"$1"');
+
+  return eval(str);
+}
+
+/**
+ * evaluateString
+ * @param {s-expression} str
+ *
+ * "evaluateString" accepts an s-expression, pre-parses it to generate
+ * the AST format and calls "evaluate".
+ */
+function evaluateString(str) {
+  var expressions = preParse(str);
+  return evaluate(expressions);
+}
+
+/**
  * evaluate
  * @param {Expression} expression
  * @param {Environment} environment
@@ -125,15 +156,32 @@ function apply(procedure, arguments) {
 // "eval" classifying the expression types.
 
 /**
+ * isNumber
+ * @param {Expression} expression
+ * Tests for primitive Number values
+ */
+function isNumber(expression) {
+  return !isNaN(expression);
+}
+
+/**
+ * isString
+ * @param {Expression} expression
+ * Tests for primitive String values
+ */
+function isString(expression) {
+  return  (typeof expression == "string" && expression[0] == "'");
+  // we mark strings with single ' apostrophe to differentiate
+  // them from variable names which are also strings
+}
+
+/**
  * isSelfEvaluating
  * @param {Expression} expression
  * Tests for primitive (self-evaluating) expressions
  */
 function isSelfEvaluating(expression) {
-  return !isNaN(expression) ||
-    // we mark strings with single ' apostrophe to differentiate
-    // them from variable names which are also strings
-    (typeof expression == "string" && expression[0] == "'");
+  return typeof expression == 'string' && (isNumber(expression) || isString(expression));
 }
 
 /**
@@ -145,7 +193,7 @@ function isSelfEvaluating(expression) {
  * function names are also variables)
  */
 function isVariable(expression) {
-  return /^([a-z-A-Z0-9_$+*/\-])+$/.test(expression);
+  return typeof expression == 'string' && /^([a-z-A-Z0-9_$+*/\-])+$/.test(expression);
 }
 
 /**
@@ -405,7 +453,7 @@ extend(TheGlobalEnvironment, {
   // handle this case.
   "+": function (/*arguments*/) {
     return [].reduce.call(arguments, function(a, b) {
-      return a + b;
+      return +a + +b;
     });
   },
   // other mathematical functions are the same
@@ -452,43 +500,43 @@ extend(TheGlobalEnvironment, {
   "VERSION": 1.5,
 
   // other functions
-  "print": console.log
+  "print": function () { return console.log.apply(console, arguments); }
 
 });
 
 // OK, let's test our interpreter.
 
 // the simplest programs
-console.log(evaluate(["+", 1, 2])); // 3
-console.log(evaluate(["+", ["*", 3, 5, 2], 4])); // 34
+console.log(evaluateString("(+ 1 2)")); // 3
+console.log(evaluateString("(+ (* 3 5 2) 4)")); // 34
 
 // test self-evaluting expressions
-console.log(evaluate(100)); // 100
-console.log(evaluate("'hello")); // "'hello"
+console.log(evaluateString("100")); // 100
+console.log(evaluateString("'hello")); // "'hello"
 
 // built-in variables
-console.log(evaluate("true")); // true
+console.log(evaluateString("true")); // true
 
 // other applications
-evaluate(["print", "'hello", "'world", "VERSION"]); // "'hello" "'world" 1.5
+evaluateString("(print 'hello 'world VERSION)"); // "'hello" "'world" 1.5
 
 // define "x" variable
-evaluate(["define", "x", 10]);
+evaluateString("(define x 10)");
 
 // lookup it in the environment
-console.log(evaluate("x")); // 10
+console.log(evaluateString("x")); // 10
 // and use in expressions
-console.log(evaluate(["*", "x", 5])); // 50
+console.log(evaluateString("(* x 5)")); // 50
 
 // define "y" variable
-evaluate(["define", "y", 20]);
+evaluateString("(define y 20)");
 
-console.log(evaluate(["min", "x", 15, "y"])); // 10, i.e. "x"
-console.log(evaluate(["/", "y", "x"])); // 2
+console.log(evaluateString("(min x 15 y)")); // 10, i.e. "x"
+console.log(evaluateString("(/ y x)")); // 2
 
 // unary - and /
-console.log(evaluate(["-", "x"])); // -10
-console.log(evaluate(["/", "y"])); // 1/20, i.e. 0.05
+console.log(evaluateString("(- x)")); // -10
+console.log(evaluateString("(/ y)")); // 1/20, i.e. 0.05
 
 // Exercises:
 //
